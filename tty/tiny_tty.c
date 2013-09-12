@@ -65,7 +65,6 @@ static void tiny_timer(unsigned long timer_data)
 {
 	struct tiny_serial *tiny = (struct tiny_serial *)timer_data;
 	struct tty_struct *tty;
-	struct tty_port *port;
 	int i;
 	char data[1] = {TINY_DATA_CHARACTER};
 	int data_size = 1;
@@ -74,16 +73,15 @@ static void tiny_timer(unsigned long timer_data)
 		return;
 
 	tty = tiny->tty;
-	port = tty->port;
 
 	/* send the data to the tty layer for users to read.  This doesn't
 	 * actually push the data through unless tty->low_latency is set */
 	for (i = 0; i < data_size; ++i) {
-		if (!tty_buffer_request_room(port, 1))
-			tty_flip_buffer_push(port);
-		tty_insert_flip_char(port, data[i], TTY_NORMAL);
+		if (!tty_buffer_request_room(tty, 1))
+			tty_flip_buffer_push(tty);
+		tty_insert_flip_char(tty, data[i], TTY_NORMAL);
 	}
-	tty_flip_buffer_push(port);
+	tty_flip_buffer_push(tty);
 
 	/* resubmit the timer again */
 	tiny->timer->expires = jiffies + DELAY_TIME;
@@ -172,9 +170,9 @@ static void tiny_close(struct tty_struct *tty, struct file *file)
 
 	if (tiny)
 		do_close(tiny);
-}	
+}
 
-static int tiny_write(struct tty_struct *tty, 
+static int tiny_write(struct tty_struct *tty,
 		      const unsigned char *buffer, int count)
 {
 	struct tiny_serial *tiny = tty->driver_data;
@@ -197,13 +195,13 @@ static int tiny_write(struct tty_struct *tty,
 	for (i = 0; i < count; ++i)
 		printk("%02x ", buffer[i]);
 	printk("\n");
-		
+
 exit:
 	up(&tiny->sem);
 	return retval;
 }
 
-static int tiny_write_room(struct tty_struct *tty) 
+static int tiny_write_room(struct tty_struct *tty)
 {
 	struct tiny_serial *tiny = tty->driver_data;
 	int room = -EINVAL;
@@ -212,7 +210,7 @@ static int tiny_write_room(struct tty_struct *tty)
 		return -ENODEV;
 
 	down(&tiny->sem);
-	
+
 	if (!tiny->open_count) {
 		/* port was not opened */
 		goto exit;
@@ -232,12 +230,12 @@ static void tiny_set_termios(struct tty_struct *tty, struct ktermios *old_termio
 {
 	unsigned int cflag;
 
-	cflag = tty->termios.c_cflag;
+	cflag = tty->termios->c_cflag;
 
 	/* check that they really want us to change something */
 	if (old_termios) {
 		if ((cflag == old_termios->c_cflag) &&
-		    (RELEVANT_IFLAG(tty->termios.c_iflag) ==
+		    (RELEVANT_IFLAG(tty->termios->c_iflag) ==
 		     RELEVANT_IFLAG(old_termios->c_iflag))) {
 			printk(KERN_DEBUG " - nothing to change...\n");
 			return;
@@ -260,7 +258,7 @@ static void tiny_set_termios(struct tty_struct *tty, struct ktermios *old_termio
 			printk(KERN_DEBUG " - data bits = 8\n");
 			break;
 	}
-	
+
 	/* determine the parity */
 	if (cflag & PARENB)
 		if (cflag & PARODD)
@@ -281,9 +279,9 @@ static void tiny_set_termios(struct tty_struct *tty, struct ktermios *old_termio
 		printk(KERN_DEBUG " - RTS/CTS is enabled\n");
 	else
 		printk(KERN_DEBUG " - RTS/CTS is disabled\n");
-	
+
 	/* determine software flow control */
-	/* if we are implementing XON/XOFF, set the start and 
+	/* if we are implementing XON/XOFF, set the start and
 	 * stop character in the device */
 	if (I_IXOFF(tty) || I_IXON(tty)) {
 		unsigned char stop_char  = STOP_CHAR(tty);

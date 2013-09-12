@@ -36,13 +36,20 @@ module_param(simple_major, int, 0);
 MODULE_AUTHOR("Jonathan Corbet");
 MODULE_LICENSE("Dual BSD/GPL");
 
+/*
+ * Open the device; in fact, there's nothing to do there.
+ */
+static int simple_open (struct inode *inode, struct file *flip)
+{
+    return 0;
+}
 
 /*
  * Closing is just as simpler.
  */
 static int simple_release(struct inode *inode, struct file *filp)
 {
-	return 0;
+    return 0;
 }
 
 
@@ -53,13 +60,13 @@ static int simple_release(struct inode *inode, struct file *filp)
 
 void simple_vma_open(struct vm_area_struct *vma)
 {
-	printk(KERN_NOTICE "Simple VMA open, virt %lx, phys %lx\n",
-			vma->vm_start, vma->vm_pgoff << PAGE_SHIFT);
+    printk(KERN_NOTICE "Simple VMA open, virt %lx, phys %lx\n",
+            vma->vm_start, vma->vm_pgoff << PAGE_SHIFT);
 }
 
 void simple_vma_close(struct vm_area_struct *vma)
 {
-	printk(KERN_NOTICE "Simple VMA close.\n");
+    printk(KERN_NOTICE "Simple VMA close.\n");
 }
 
 
@@ -69,20 +76,20 @@ void simple_vma_close(struct vm_area_struct *vma)
  */
 
 static struct vm_operations_struct simple_remap_vm_ops = {
-	.open =  simple_vma_open,
-	.close = simple_vma_close,
+    .open =  simple_vma_open,
+    .close = simple_vma_close,
 };
 
 static int simple_remap_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
-			    vma->vm_end - vma->vm_start,
-			    vma->vm_page_prot))
-		return -EAGAIN;
+    if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
+                vma->vm_end - vma->vm_start,
+                vma->vm_page_prot))
+        return -EAGAIN;
 
-	vma->vm_ops = &simple_remap_vm_ops;
-	simple_vma_open(vma);
-	return 0;
+    vma->vm_ops = &simple_remap_vm_ops;
+    simple_vma_open(vma);
+    return 0;
 }
 
 
@@ -92,37 +99,37 @@ static int simple_remap_mmap(struct file *filp, struct vm_area_struct *vma)
  */
 static int simple_vma_nopage(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
-	struct page *pageptr;
-	unsigned long offset = vma->vm_pgoff << PAGE_SHIFT;
-	unsigned long physaddr = (unsigned long) vmf->virtual_address - vma->vm_start + offset;
-	unsigned long pageframe = physaddr >> PAGE_SHIFT;
+    struct page *pageptr;
+    unsigned long offset = vma->vm_pgoff << PAGE_SHIFT;
+    unsigned long physaddr = (unsigned long) vmf->virtual_address - vma->vm_start + offset;
+    unsigned long pageframe = physaddr >> PAGE_SHIFT;
 
-// Eventually remove these printks
-	printk (KERN_NOTICE "---- Nopage, off %lx phys %lx\n", offset, physaddr);
-	printk (KERN_NOTICE "VA is %p\n", __va (physaddr));
-	printk (KERN_NOTICE "Page at %p\n", virt_to_page (__va (physaddr)));
-	if (!pfn_valid(pageframe))
-		return VM_FAULT_SIGBUS;
-	pageptr = pfn_to_page(pageframe);
-	printk (KERN_NOTICE "page->index = %ld mapping %p\n", pageptr->index, pageptr->mapping);
-	printk (KERN_NOTICE "Page frame %ld\n", pageframe);
-	get_page(pageptr);
-	vmf->page = pageptr;
+    // Eventually remove these printks
+    printk (KERN_NOTICE "---- Nopage, off %lx phys %lx\n", offset, physaddr);
+    printk (KERN_NOTICE "VA is %p\n", __va (physaddr));
+    printk (KERN_NOTICE "Page at %p\n", virt_to_page (__va (physaddr)));
+    if (!pfn_valid(pageframe))
+        return VM_FAULT_SIGBUS;
+    pageptr = pfn_to_page(pageframe);
+    printk (KERN_NOTICE "page->index = %ld mapping %p\n", pageptr->index, pageptr->mapping);
+    printk (KERN_NOTICE "Page frame %ld\n", pageframe);
+    get_page(pageptr);
+    vmf->page = pageptr;
 
-	return 0;
+    return 0;
 }
 
 static struct vm_operations_struct simple_nopage_vm_ops = {
-	.open =   simple_vma_open,
-	.close =  simple_vma_close,
-	.fault = simple_vma_nopage,
+    .open =   simple_vma_open,
+    .close =  simple_vma_close,
+    .fault = simple_vma_nopage,
 };
 
 static int simple_nopage_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-	vma->vm_ops = &simple_nopage_vm_ops;
-	simple_vma_open(vma);
-	return 0;
+    vma->vm_ops = &simple_nopage_vm_ops;
+    simple_vma_open(vma);
+    return 0;
 }
 
 
@@ -130,17 +137,17 @@ static int simple_nopage_mmap(struct file *filp, struct vm_area_struct *vma)
  * Set up the cdev structure for a device.
  */
 static void simple_setup_cdev(struct cdev *dev, int minor,
-		struct file_operations *fops)
+        struct file_operations *fops)
 {
-	int err, devno = MKDEV(simple_major, minor);
-    
-	cdev_init(dev, fops);
-	dev->owner = THIS_MODULE;
-	dev->ops = fops;
-	err = cdev_add (dev, devno, 1);
-	/* Fail gracefully if need be */
-	if (err)
-		printk (KERN_NOTICE "Error %d adding simple%d", err, minor);
+    int err, devno = MKDEV(simple_major, minor);
+
+    cdev_init(dev, fops);
+    dev->owner = THIS_MODULE;
+    dev->ops = fops;
+    err = cdev_add (dev, devno, 1);
+    /* Fail gracefully if need be */
+    if (err)
+        printk (KERN_NOTICE "Error %d adding simple%d", err, minor);
 }
 
 
@@ -149,26 +156,26 @@ static void simple_setup_cdev(struct cdev *dev, int minor,
  */
 /* Device 0 uses remap_pfn_range */
 static struct file_operations simple_remap_ops = {
-	.owner   = THIS_MODULE,
-	.open    = simple_open,
-	.release = simple_release,
-	.mmap    = simple_remap_mmap,
+    .owner   = THIS_MODULE,
+    .open    = simple_open,
+    .release = simple_release,
+    .mmap    = simple_remap_mmap,
 };
 
 /* Device 1 uses nopage */
 static struct file_operations simple_nopage_ops = {
-	.owner   = THIS_MODULE,
-	.open    = simple_open,
-	.release = simple_release,
-	.mmap    = simple_nopage_mmap,
+    .owner   = THIS_MODULE,
+    .open    = simple_open,
+    .release = simple_release,
+    .mmap    = simple_nopage_mmap,
 };
 
 #define MAX_SIMPLE_DEV 2
 
 #if 0
 static struct file_operations *simple_fops[MAX_SIMPLE_DEV] = {
-	&simple_remap_ops,
-	&simple_nopage_ops,
+    &simple_remap_ops,
+    &simple_nopage_ops,
 };
 #endif
 
@@ -183,35 +190,35 @@ static struct cdev SimpleDevs[MAX_SIMPLE_DEV];
  */
 static int simple_init(void)
 {
-	int result;
-	dev_t dev = MKDEV(simple_major, 0);
+    int result;
+    dev_t dev = MKDEV(simple_major, 0);
 
-	/* Figure out our device number. */
-	if (simple_major)
-		result = register_chrdev_region(dev, 2, "simple");
-	else {
-		result = alloc_chrdev_region(&dev, 0, 2, "simple");
-		simple_major = MAJOR(dev);
-	}
-	if (result < 0) {
-		printk(KERN_WARNING "simple: unable to get major %d\n", simple_major);
-		return result;
-	}
-	if (simple_major == 0)
-		simple_major = result;
+    /* Figure out our device number. */
+    if (simple_major)
+        result = register_chrdev_region(dev, 2, "simple");
+    else {
+        result = alloc_chrdev_region(&dev, 0, 2, "simple");
+        simple_major = MAJOR(dev);
+    }
+    if (result < 0) {
+        printk(KERN_WARNING "simple: unable to get major %d\n", simple_major);
+        return result;
+    }
+    if (simple_major == 0)
+        simple_major = result;
 
-	/* Now set up two cdevs. */
-	simple_setup_cdev(SimpleDevs, 0, &simple_remap_ops);
-	simple_setup_cdev(SimpleDevs + 1, 1, &simple_nopage_ops);
-	return 0;
+    /* Now set up two cdevs. */
+    simple_setup_cdev(SimpleDevs, 0, &simple_remap_ops);
+    simple_setup_cdev(SimpleDevs + 1, 1, &simple_nopage_ops);
+    return 0;
 }
 
 
 static void simple_cleanup(void)
 {
-	cdev_del(SimpleDevs);
-	cdev_del(SimpleDevs + 1);
-	unregister_chrdev_region(MKDEV(simple_major, 0), 2);
+    cdev_del(SimpleDevs);
+    cdev_del(SimpleDevs + 1);
+    unregister_chrdev_region(MKDEV(simple_major, 0), 2);
 }
 
 
