@@ -175,7 +175,7 @@ static void sbull_full_request(struct request_queue *q)
 			continue;
 		}
 		sectors_xferred = sbull_xfer_request(dev, req);
-		__blk_end_request(req, 0, sectors_xferred);
+		__blk_end_request(req, 0, sectors_xferred*hardsect_size);
 	}
 }
 
